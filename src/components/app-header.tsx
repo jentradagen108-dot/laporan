@@ -1,14 +1,12 @@
 
 'use client';
 
-import { useState } from 'react';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { LogOut, User, Building, Truck, Fingerprint, Briefcase } from 'lucide-react';
 import type { UserData } from '@/lib/types';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-
 
 interface AppHeaderProps {
   userInfo: UserData | null;
@@ -17,10 +15,9 @@ interface AppHeaderProps {
 export default function AppHeader({ userInfo }: AppHeaderProps) {
   const router = useRouter();
 
-  const handleLogout = async () => {
-    await fetch('/api/logout');
+  const handleLogout = () => {
+    localStorage.removeItem('user');
     router.push('/login');
-    router.refresh();
   };
   
   if (!userInfo) {

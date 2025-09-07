@@ -9,40 +9,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, User, Lock } from 'lucide-react';
-import { db, collection, query, where, getDocs, doc, setDoc } from '@/lib/firebase';
+import { db, collection, query, where, getDocs } from '@/lib/firebase';
 import type { UserData } from '@/lib/types';
 
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-
-  const ensureSuperAdminExists = async () => {
-    const superAdminRef = doc(db, 'users', 'SUPERADMIN_USER');
-    const docSnap = await getDocs(query(collection(db, 'users'), where('username', '==', 'SUPERADMIN')));
-    if (docSnap.empty) {
-        await setDoc(superAdminRef, {
-            username: 'SUPERADMIN',
-            password: 'SUPERADMIN',
-            nik: '000000',
-            jabatan: 'SUPER ADMIN',
-            lokasi: 'Pusat',
-            role: 'admin',
-        });
-    }
-  };
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    await ensureSuperAdminExists();
-
-    const form = e.currentTarget as HTMLFormElement;
-    const usernameInput = (form.elements.namedItem('username') as HTMLInputElement).value;
-    const password = (form.elements.namedItem('password') as HTMLInputElement).value;
-
-    if (!usernameInput || !password) {
+    if (!username || !password) {
         toast({
             variant: 'destructive',
             title: 'Gagal Login',
@@ -53,21 +34,10 @@ export default function LoginPage() {
     }
     
     try {
-        const usernameQueries = [
-            query(collection(db, "users"), where("username", "==", usernameInput)),
-            query(collection(db, "users"), where("username", "==", usernameInput.toUpperCase())),
-            query(collection(db, "users"), where("username", "==", usernameInput.toLowerCase())),
-        ];
+        const q = query(collection(db, "users"), where("username", "==", username.toUpperCase()));
+        const querySnapshot = await getDocs(q);
 
-        let querySnapshot;
-        for (const q of usernameQueries) {
-            querySnapshot = await getDocs(q);
-            if (!querySnapshot.empty) {
-                break; 
-            }
-        }
-
-        if (!querySnapshot || querySnapshot.empty) {
+        if (querySnapshot.empty) {
             toast({
                 variant: 'destructive',
                 title: 'Gagal Login',
@@ -131,12 +101,11 @@ export default function LoginPage() {
             });
             localStorage.removeItem('user');
             setIsLoading(false);
-            return;
         }
 
     } catch (error) {
         console.error("Login Error:", error);
-        toast({ variant: 'destructive', title: 'Terjadi Kesalahan', description: 'Tidak dapat terhubung ke server untuk otentikasi.' });
+        toast({ variant: 'destructive', title: 'Terjadi Kesalahan', description: 'Tidak dapat terhubung ke server. Periksa koneksi dan konfigurasi Firebase Anda.' });
         setIsLoading(false);
     }
   };
@@ -161,8 +130,8 @@ export default function LoginPage() {
                 placeholder="Username"
                 required
                 className="pl-10"
-                style={{textTransform: 'uppercase'}}
-                autoCapitalize="characters"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
               />
             </div>
             <div className="relative">
@@ -174,6 +143,8 @@ export default function LoginPage() {
                 placeholder="Password"
                 required
                 className="pl-10"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
             </div>
             <Button type="submit" className="w-full font-semibold tracking-wide" disabled={isLoading}>
