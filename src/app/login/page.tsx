@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, User, Lock } from 'lucide-react';
-import { db, collection, query, where, getDocs } from '@/lib/firebase';
+import { db, collection, query, where, getDocs, doc, setDoc } from '@/lib/firebase';
 import type { UserData } from '@/lib/types';
 
 export default function LoginPage() {
@@ -17,15 +17,32 @@ export default function LoginPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
+  const ensureSuperAdminExists = async () => {
+    const superAdminRef = doc(db, 'users', 'SUPERADMIN_USER');
+    const docSnap = await getDocs(query(collection(db, 'users'), where('username', '==', 'SUPERADMIN')));
+    if (docSnap.empty) {
+        await setDoc(superAdminRef, {
+            username: 'SUPERADMIN',
+            password: 'SUPERADMIN',
+            nik: '000000',
+            jabatan: 'SUPER ADMIN',
+            lokasi: 'Pusat',
+            role: 'admin',
+        });
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
+    await ensureSuperAdminExists();
+
     const form = e.currentTarget as HTMLFormElement;
-    const username = (form.elements.namedItem('username') as HTMLInputElement).value;
+    const usernameInput = (form.elements.namedItem('username') as HTMLInputElement).value;
     const password = (form.elements.namedItem('password') as HTMLInputElement).value;
 
-    if (!username || !password) {
+    if (!usernameInput || !password) {
         toast({
             variant: 'destructive',
             title: 'Gagal Login',
@@ -36,10 +53,21 @@ export default function LoginPage() {
     }
     
     try {
-        const q = query(collection(db, "users"), where("username", "==", username.toUpperCase()));
-        const querySnapshot = await getDocs(q);
+        const usernameQueries = [
+            query(collection(db, "users"), where("username", "==", usernameInput)),
+            query(collection(db, "users"), where("username", "==", usernameInput.toUpperCase())),
+            query(collection(db, "users"), where("username", "==", usernameInput.toLowerCase())),
+        ];
 
-        if (querySnapshot.empty) {
+        let querySnapshot;
+        for (const q of usernameQueries) {
+            querySnapshot = await getDocs(q);
+            if (!querySnapshot.empty) {
+                break; 
+            }
+        }
+
+        if (!querySnapshot || querySnapshot.empty) {
             toast({
                 variant: 'destructive',
                 title: 'Gagal Login',
@@ -96,7 +124,6 @@ export default function LoginPage() {
         } else if (jabatan.includes('HSE K3')) {
             router.push('/hse-k3');
         } else {
-            // Fallback for any other roles, maybe to a generic dashboard or just show a toast
             toast({
                 variant: 'destructive',
                 title: 'Akses Ditolak',
