@@ -70,7 +70,7 @@ export default function AdminPage() {
       return;
     }
     const userData = JSON.parse(userString);
-    if (userData.jabatan !== 'SUPER ADMIN') {
+    if (userData.jabatan !== 'SUPER ADMIN' && userData.username !== 'SUPERADMIN') {
         toast({
             variant: 'destructive',
             title: 'Akses Ditolak',
