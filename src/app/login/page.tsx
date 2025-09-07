@@ -135,6 +135,7 @@ export default function LoginPage() {
                 required
                 className="pl-10"
                 style={{textTransform: 'uppercase'}}
+                autoCapitalize="characters"
               />
             </div>
             <div className="relative">
