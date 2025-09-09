@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, User, Lock, WifiOff } from 'lucide-react';
-import { db, collection, query, where, getDocs, limit } from '@/lib/firebase';
+import { db, collection, getDocs } from '@/lib/firebase';
 import type { UserData } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
@@ -19,19 +19,22 @@ export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [dbError, setDbError] = useState<string | null>(null);
+  const [allUsers, setAllUsers] = useState<UserData[]>([]);
 
   useEffect(() => {
-    // Check Firestore connection on page load
-    const checkConnection = async () => {
+    // Fetch all users on component mount
+    const fetchUsers = async () => {
       try {
-        await getDocs(query(collection(db, 'users'), limit(1)));
+        const usersSnapshot = await getDocs(collection(db, 'users'));
+        const usersData = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserData));
+        setAllUsers(usersData);
         setDbError(null);
       } catch (error: any) {
         console.error("Firestore connection failed:", error);
         setDbError(`Tidak dapat terhubung ke database. Error: ${error.message}. Pastikan Firestore API aktif dan konfigurasi benar.`);
       }
     };
-    checkConnection();
+    fetchUsers();
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -58,53 +61,66 @@ export default function LoginPage() {
         return;
     }
     
-    try {
-        const q = query(collection(db, "users"), where("username", "==", username.toUpperCase()));
-        const querySnapshot = await getDocs(q);
+    // Client-side user lookup
+    const foundUser = allUsers.find(user => user.username.toUpperCase() === username.toUpperCase());
 
-        if (querySnapshot.empty) {
-            toast({
-                variant: 'destructive',
-                title: 'Gagal Login',
-                description: 'Username tidak ditemukan.',
-            });
-            setIsLoading(false);
-            return;
-        }
-
-        const userDoc = querySnapshot.docs[0];
-        const userData = { id: userDoc.id, ...userDoc.data() } as UserData;
-
-        if (userData.password !== password) {
-            toast({
-                variant: 'destructive',
-                title: 'Gagal Login',
-                description: 'Password yang Anda masukkan salah.',
-            });
-            setIsLoading(false);
-            return;
-        }
-        
-        localStorage.setItem('user', JSON.stringify(userData));
-
-        toast({
-            title: `Selamat Datang, ${userData.username}!`,
-            description: 'Anda berhasil login.',
-        });
-
-        const jabatan = userData.jabatan.toUpperCase();
-        if (jabatan === 'SUPER ADMIN') {
-            router.push('/admin');
-        } else {
-             router.push('/');
-        }
-
-    } catch (error) {
-        console.error("Login Error:", error);
-        setDbError(`Error saat login: ${error}`);
-        toast({ variant: 'destructive', title: 'Terjadi Kesalahan', description: 'Gagal memverifikasi pengguna. Coba lagi.' });
-        setIsLoading(false);
+    if (!foundUser) {
+      toast({
+          variant: 'destructive',
+          title: 'Gagal Login',
+          description: 'Username tidak ditemukan.',
+      });
+      setIsLoading(false);
+      return;
     }
+
+    if (foundUser.password !== password) {
+        toast({
+            variant: 'destructive',
+            title: 'Gagal Login',
+            description: 'Password yang Anda masukkan salah.',
+        });
+        setIsLoading(false);
+        return;
+    }
+    
+    localStorage.setItem('user', JSON.stringify(foundUser));
+
+    toast({
+        title: `Selamat Datang, ${foundUser.username}!`,
+        description: 'Anda berhasil login.',
+    });
+
+    const jabatan = foundUser.jabatan.toUpperCase();
+    if (jabatan.includes('SUPER ADMIN')) {
+      router.push('/admin');
+    } else if (jabatan.includes('ADMIN BP')) {
+        router.push('/admin-bp');
+    } else if (jabatan.includes('KEPALA WORKSHOP')) {
+        router.push('/workshop');
+    } else if (jabatan.includes('KEPALA MEKANIK')) {
+        router.push('/kepala-mekanik');
+    } else if (jabatan.includes('MEKANIK')) {
+        router.push('/mekanik');
+    } else if (jabatan.includes('SOPIR')) {
+        router.push('/sopir');
+    } else if (jabatan.includes('QC')) {
+        router.push('/qc');
+    } else if (jabatan.includes('PEKERJA BONGKAR SEMEN')) {
+        router.push('/bongkar-semen');
+    } else if (jabatan.includes('ADMIN LOGISTIK MATERIAL')) {
+        router.push('/admin-logistik-material');
+    } else if (jabatan.includes('OWNER')) {
+        router.push('/owner');
+    } else if (jabatan.includes('HRD PUSAT')) {
+        router.push('/hrd-pusat');
+    } else if (jabatan.includes('HSE K3')) {
+        router.push('/hse-k3');
+    } else {
+        router.push('/');
+    }
+
+    setIsLoading(false);
   };
 
   return (
